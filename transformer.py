@@ -34,12 +34,12 @@ class ScaledDotProductModule(nn.Module):
         self.wqkv = nn.Dense(features=weight_dim, use_bias=False)
     
     def __call__(self, x):
-        print(f"x.shape: {x.shape}")
+        # print(f"x.shape: {x.shape}")
         qkv = self.wqkv(x)
         q, k, v = jnp.split(qkv, 3, axis=-1)
-        print(f"q.shape: {q.shape}")
-        print(f"k.shape: {k.shape}")
-        print(f"v.shape: {v.shape}")
+        # print(f"q.shape: {q.shape}")
+        # print(f"k.shape: {k.shape}")
+        # print(f"v.shape: {v.shape}")
         x = scaled_dot_product_attention(q, k, v)
         return x
 
@@ -65,7 +65,7 @@ class MultiHeadAttention(nn.Module):
         residual = x
         attentions = [head(x) for head in self.heads]
         attentions = jnp.concatenate(attentions, axis=-1)
-        print(f"attentions.shape: {attentions.shape}")  
+        # print(f"attentions.shape: {attentions.shape}")  
         x = self.linear(attentions)
         x = x + residual
         residual = x
@@ -90,20 +90,21 @@ class PositionalEncoding(nn.Module):
     def __call__(self, x):
         x = x + self.pe[:, :x.shape[1]]
         return x
-
 class Transformer(nn.Module):
     num_layers: int
+    vocab_size: int
     d_model: int
     d_k: int
     h: int
 
     def setup(self):
+        self.embedding = nn.Dense(features=self.d_model)
         self.attention_layers = [MultiHeadAttention(self.d_model, self.d_k, self.h) for _ in range(self.num_layers)]
         self.positional_encoder = PositionalEncoding(self.d_model)
-        self.lin = nn.Dense(features=self.d_model)
+        self.lin = nn.Dense(features=self.vocab_size)
 
     def __call__(self, output_embeddings):
-        x = output_embeddings
+        x = self.embedding(output_embeddings)
         x = self.positional_encoder(x)
         for attention_layer in self.attention_layers:
             x = attention_layer(x)
