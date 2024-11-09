@@ -74,11 +74,22 @@ class MultiHeadAttention():
 
         return x
 
-# class PositionalEncoding():
-#     def __init__(self, d_model, ):
-#         self.d_model = d_model
+class PositionalEncoding():
+    def __init__(self, d_model, dropout = 0.1, max_len = 5000):
+        self.d_model = d_model
+        self.dropout = dropout
+        self.pe = jnp.zeros((max_len, d_model))
+        position = jnp.arange(0, max_len).reshape(-1, 1)
+        div_term = jnp.exp(jnp.arange(0, d_model, 2) * -(math.log(10000.0) / d_model))
+        self.pe[:, 0::2] = jnp.sin(position * div_term)
+        self.pe[:, 1::2] = jnp.cos(position * div_term)
+        self.pe = self.pe[None, :, :]
+        self.register_buffer('pe', self.pe)
 
-#     def encode(self, ):
+
+    def encode(self, x):
+        x = x + self.pe[:, :x.size(1)]
+        return x
 
 class Transformer():
     def __init__(self, num_layers, d_model, d_k, h):
