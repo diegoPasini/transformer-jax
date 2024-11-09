@@ -51,7 +51,8 @@ class MultiHeadAttention():
         self.heads = nn.ModuleList([ScaledDotProductModule(d_model, d_k) for i in range(h)])
         self.ff1 = flax.linen.Dense(features = d_model)
         self.ff2 = flax.linen.Dense(features = d_model)
-    
+
+
     @hk.transparent
     def feedforward(self, x):
         x = self.ff1(x)
@@ -60,19 +61,24 @@ class MultiHeadAttention():
         return x
     
     def __call__(self, x):
+        residual = x
         attentions = jnp.empty_like((self.h, self.d_k))
         for i, l in enumerate(self.heads):
             attentions[i] = l(x)
         attentions = lax.concatenate(attentions, dimension = 1)
         x = self.linear(attentions)
-        x = feedforward(self, x)
+        x = x + residual
+        residual = x
+        x = self.feedforward(x)
+        x = x + residual
+
         return x
 
-class PositionalEncoding():
-    def __init__(self, d_model, ):
-        self.d_model = d_model
+# class PositionalEncoding():
+#     def __init__(self, d_model, ):
+#         self.d_model = d_model
 
-    def encode(self, ):
+#     def encode(self, ):
 
 class Transformer():
     def __init__(self, num_layers, d_model, d_k, h):
@@ -81,9 +87,15 @@ class Transformer():
         self.h = h
         self.num_layers = num_layers
         self.heads = nn.ModuleList([MultiHeadAttention(d_model, d_k, h) for i in range(num_layers)])
-        
+        # self.positional_encoder = PositionalEncoding()
+        self.lin = flax.linen.Dense(features = d_model)
 
-    
-    def __call__(self, ):
-    
+    def __call__(self, output_embeddings):
+        x = output_embeddings
+        for i, l in enumerate(self.heads):
+            x = l(x)
+        x = self.lin(x)
+        x = nn.softmax(x)
+        return x
+        
     
