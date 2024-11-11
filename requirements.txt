@@ -1,0 +1,6 @@
+dm_haiku==0.0.14.dev0
+flax==0.10.0
+jax==0.4.35
+numpy==2.1.3
+optax==0.2.3
+tqdm==4.65.0
