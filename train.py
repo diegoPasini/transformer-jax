@@ -84,8 +84,6 @@ def get_batch(mode):
     indices = np.random.choice(n_batches, batch_size, replace=False)
     x = np.stack([data[i] for i in indices])
     y = np.roll(x, -1, axis=1)
-    # print(f"x.shape: {x.shape}")
-    # print(f"y.shape: {y.shape}")
     return x, y
 
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
@@ -120,17 +118,21 @@ def eval_step(params, x, y):
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
-def generate_sample_sequence(params, seed_sequence, length=100):
-    """Generate a sample sequence from the model."""
+def generate_sample_sequence(params, seed_sequence, length=100, temperature=0.7):
     generated_sequence = seed_sequence
+    rng = jax.random.PRNGKey(0)  
     for _ in range(length):
         logits = model.apply(params, jnp.array(generated_sequence[-seq_len:]).reshape(1, -1))
-        next_token = jnp.argmax(logits[0, -1])
+        # Apply temperature scaling
+        scaled_logits = logits[0, -1] / temperature
+        probabilities = jax.nn.softmax(scaled_logits)
+        rng, subkey = jax.random.split(rng)  
+        next_token = jax.random.choice(subkey, jnp.arange(vocab_size), p=probabilities)
+        #print(f"next_token: {next_token}")
         generated_sequence.append(int(next_token))
     return generated_sequence
 
 def save_sample_sequence(sample_sequence, filename="sample_sequence.txt"):
-    """Save the sample sequence to a file."""
     with open(filename, "w") as f:
         for token in sample_sequence:
             f.write(f"{token}\n")
@@ -140,10 +142,11 @@ for epoch in range(n_epochs):
     logging.info(f"Starting epoch {epoch+1}/{n_epochs}")
     for step in range(max_steps):
         x, y = get_batch("train")
-        # print(f"x.shape: {x.shape}")
-        # print(f"y.shape: {y.shape}")
-        # print(f"X: {x}")
-        # print(f"Y: {y}")
+        # print(f"x.shape: {x.shape} y.shape: {y.shape}")
+        # for batch_idx, (x_seq, y_seq) in enumerate(zip(x, y)):
+        #     x_chars = ''.join(i2c[i] for i in x_seq)
+        #     y_chars = ''.join(i2c[i] for i in y_seq)
+        #     print(f"Batch {batch_idx}: x: {x_chars} y: {y_chars}")
         params, opt_state, loss = train_step(params, opt_state, x, y)
 
         if step % log_interval == 0:

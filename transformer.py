@@ -20,7 +20,7 @@ def scaled_dot_product_attention(q, k, v):
     d_k = k.shape[-1]
     attention_matrix = attention_matrix / jnp.sqrt(d_k)
     attention_matrix = jnp.triu(attention_matrix, k=0)
-    attention_matrix = jnp.where(attention_matrix == 0, -9e15, attention_matrix)
+    attention_matrix = jnp.where(attention_matrix == 0, -jnp.inf, attention_matrix)
     attention_matrix = jax.nn.softmax(attention_matrix, axis=-1)
     output = attention_matrix @ v
     return output
