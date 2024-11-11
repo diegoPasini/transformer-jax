@@ -87,13 +87,13 @@ def get_batch(mode):
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
 
 def loss_fn(params, x, y):
-    x = nn.one_hot(x, vocab_size)
-    x = x.astype(jnp.float32)
+    # x = nn.one_hot(x, vocab_size)
+    # x = x.astype(jnp.float32)
     logits = model.apply(params, x)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
-params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len, vocab_size)))
+params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len)))
 opt_state = optimizer.init(params)
 
 def count_params(params):
@@ -110,8 +110,8 @@ def train_step(params, opt_state, x, y):
     return params, opt_state, loss
 
 def eval_step(params, x, y):
-    x = nn.one_hot(x, vocab_size)
-    x = x.astype(jnp.float32)
+    # x = nn.one_hot(x, vocab_size)
+    # x = x.astype(jnp.float32)
     logits = model.apply(params, x)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
