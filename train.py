@@ -19,8 +19,8 @@ dataset = "shakespeare"
 model_dir = "transformer.py"
 batch_size = 32
 seq_len = 32
-d_model = 64
-d_k = 64
+d_model = 32
+d_k = 32
 h = 4
 n_layers = 3
 n_epochs = 10
@@ -89,13 +89,13 @@ def get_batch(mode):
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
 
 def loss_fn(params, x, y):
-    # x = nn.one_hot(x, vocab_size)
-    # x = x.astype(jnp.float32)
-    logits = model.apply(params, x)
+    rngs = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1)}
+    logits = model.apply(params, x, training=True, rngs=rngs)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
-params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len)))
+init_rngs = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1)}
+params = model.init(init_rngs, jnp.ones((1, seq_len)))
 opt_state = optimizer.init(params)
 
 def count_params(params):
@@ -114,21 +114,21 @@ def train_step(params, opt_state, x, y):
 
 @jax.jit
 def eval_step(params, x, y):
-    logits = model.apply(params, x)
+    rngs = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1)}
+    logits = model.apply(params, x, training=False, rngs=rngs)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
 def generate_sample_sequence(params, seed_sequence, length=100, temperature=0.9):
     generated_sequence = seed_sequence
-    rng = jax.random.PRNGKey(0)  
+    rngs = {'params': jax.random.PRNGKey(0), 'dropout': jax.random.PRNGKey(1)}
     for _ in range(length):
-        logits = model.apply(params, jnp.array(generated_sequence[-seq_len:]).reshape(1, -1))
+        logits = model.apply(params, jnp.array(generated_sequence[-seq_len:]).reshape(1, -1), training=False, rngs=rngs)
         # Apply temperature scaling
         scaled_logits = logits[0, -1] / temperature
         probabilities = jax.nn.softmax(scaled_logits)
-        rng, subkey = jax.random.split(rng)  
+        rng, subkey = jax.random.split(rngs['dropout'])  
         next_token = jax.random.choice(subkey, jnp.arange(vocab_size), p=probabilities)
-        #print(f"next_token: {next_token}")
         generated_sequence.append(int(next_token))
     return generated_sequence
 
@@ -142,11 +142,6 @@ for epoch in range(n_epochs):
     logging.info(f"Starting epoch {epoch+1}/{n_epochs}")
     for step in range(max_steps):
         x, y = get_batch("train")
-        # print(f"x.shape: {x.shape} y.shape: {y.shape}")
-        # for batch_idx, (x_seq, y_seq) in enumerate(zip(x, y)):
-        #     x_chars = ''.join(i2c[i] for i in x_seq)
-        #     y_chars = ''.join(i2c[i] for i in y_seq)
-        #     print(f"Batch {batch_idx}: x: {x_chars} y: {y_chars}")
         params, opt_state, loss = train_step(params, opt_state, x, y)
 
         if step % log_interval == 0:

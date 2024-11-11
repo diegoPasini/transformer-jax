@@ -32,7 +32,7 @@ class MultiHeadAttentionModule(nn.Module):
 
     def setup(self):
         weight_dim = self.d_model * self.d_k * 3
-        self.wqkv = nn.Dense(features=weight_dim, use_bias=False)
+        self.wqkv = nn.Dense(features=weight_dim, kernel_init=nn.initializers.xavier_uniform(), use_bias=False)
     
     def __call__(self, x):
         batch_size, seq_length, _ = x.shape
@@ -41,8 +41,11 @@ class MultiHeadAttentionModule(nn.Module):
         qkv = qkv.transpose(0, 2, 1, 3) 
         q, k, v = jnp.array_split(qkv, 3, axis=-1)
         x = scaled_dot_product_attention(q, k, v)
+        #print(f"x1.shape: {x.shape}")
         x = x.transpose(0, 2, 1, 3) 
+        # print(f"x2.shape: {x.shape}")
         x = x.reshape(batch_size, seq_length, self.d_model * self.d_k)
+        # print(f"x3.shape: {x.shape}")
         # print(f"x.shape: {x.shape}")    
         return x
 
@@ -53,13 +56,13 @@ class TransformerLayer(nn.Module):
     dropout_rate: float = 0.1
 
     def setup(self):
-        self.linear = nn.Dense(features=self.d_model)
+        self.linear = nn.Dense(features=self.d_model * self.d_k, kernel_init=nn.initializers.xavier_uniform())
         self.multi_head_attention = MultiHeadAttentionModule(self.d_model, self.d_k, self.head)
         self.dropout = nn.Dropout(rate=self.dropout_rate)
         self.layernorm1 = nn.LayerNorm()
         self.layernorm2 = nn.LayerNorm()
-        self.ff1 = nn.Dense(features=self.d_model)
-        self.ff2 = nn.Dense(features=self.d_model)
+        self.ff1 = nn.Dense(features=self.d_model * self.d_k, kernel_init=nn.initializers.xavier_uniform())
+        self.ff2 = nn.Dense(features=self.d_model * self.d_k, kernel_init=nn.initializers.xavier_uniform())
 
     @hk.transparent
     def feedforward(self, x):
@@ -68,16 +71,16 @@ class TransformerLayer(nn.Module):
         x = self.ff2(x)
         return x
     
-    def __call__(self, x, deterministic: bool = True):
+    def __call__(self, x, training: bool = True):
         residual = x
         attention = self.multi_head_attention(x)
         x = self.linear(attention)
-        x = self.dropout(x, deterministic=deterministic)
+        x = x + self.dropout(x, deterministic=not training)
         x = x + residual
         x = self.layernorm1(x)
         residual = x
         x = self.feedforward(x)
-        x = self.dropout(x, deterministic=deterministic)
+        x = x + self.dropout(x, deterministic=not training)
         x = x + residual
         x = self.layernorm2(x)
         return x
@@ -108,25 +111,22 @@ class Transformer(nn.Module):
     dropout_rate: float = 0.1
 
     def setup(self):
-        self.embedding = nn.Embed(num_embeddings = self.vocab_size, features=self.d_model)
+        self.embedding = nn.Embed(num_embeddings = self.vocab_size, features=self.d_model * self.d_k)
         self.attention_layers = [TransformerLayer(self.d_model, self.d_k, self.h, self.dropout_rate) for _ in range(self.num_layers)]
-        self.positional_encoder = PositionalEncoding(self.d_model)
+        self.positional_encoder = PositionalEncoding(self.d_model * self.d_k)
         self.lin = nn.Dense(features=self.vocab_size)
         self.dropout = nn.Dropout(rate=self.dropout_rate)
         self.layernorm = nn.LayerNorm()
 
-    def __call__(self, output_embeddings, deterministic: bool = True):
-        # print(f"output_embeddings.shape: {output_embeddings.shape}")
+    def __call__(self, output_embeddings, training: bool = True):
         # Ensure the input is of integer type
         output_embeddings = jnp.asarray(output_embeddings, dtype=jnp.int32)
         x = self.embedding(output_embeddings)
-        # print(f"x.shape: {x.shape}")
         x = self.positional_encoder(x)
-        # print(f"x.shape: {x.shape}")
         for attention_layer in self.attention_layers:
-            x = attention_layer(x, deterministic=deterministic)
+            x = attention_layer(x, training=training)
         x = self.lin(x)
-        x = self.dropout(x, deterministic=deterministic)
+        x = x + self.dropout(x, deterministic=not training)
         x = self.layernorm(x)
         return x
 
