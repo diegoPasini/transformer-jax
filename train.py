@@ -17,19 +17,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 dataset = "shakespeare"
 model_dir = "transformer.py"
-batch_size = 4
+batch_size = 32
 seq_len = 32
 d_model = 64
 d_k = 64
 h = 4
 n_layers = 3
 n_epochs = 10
-lr = 1e-3
+lr = 1e-4
 warmup_steps = 4000
 max_steps = 20000
 log_interval = 200
 
 optimizer = optax.adam(learning_rate=lr)
+
+logging.info(f"JAX devices: {jax.devices()}")
 
 # Download the dataset
 url = "https://www.gutenberg.org/cache/epub/100/pg100.txt"
@@ -79,21 +81,23 @@ def get_batch(mode):
     logging.debug(f"Fetching batch for {mode} mode.")
     data = train_data if mode == "train" else val_data
     n_batches = data.shape[0]
-    idx = np.random.randint(0, n_batches)
-    x = np.stack([data[idx]])
+    indices = np.random.choice(n_batches, batch_size, replace=False)
+    x = np.stack([data[i] for i in indices])
     y = np.roll(x, -1, axis=1)
+    # print(f"x.shape: {x.shape}")
+    # print(f"y.shape: {y.shape}")
     return x, y
 
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
 
 def loss_fn(params, x, y):
-    x = nn.one_hot(x, vocab_size)
-    x = x.astype(jnp.float32)
+    # x = nn.one_hot(x, vocab_size)
+    # x = x.astype(jnp.float32)
     logits = model.apply(params, x)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
-params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len, vocab_size)))
+params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len)))
 opt_state = optimizer.init(params)
 
 def count_params(params):
@@ -102,6 +106,7 @@ def count_params(params):
 num_params = count_params(params)
 logging.info(f"Number of model parameters: {num_params}")
 
+@jax.jit
 def train_step(params, opt_state, x, y):
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(params, x, y)
@@ -109,12 +114,26 @@ def train_step(params, opt_state, x, y):
     params = optax.apply_updates(params, updates)
     return params, opt_state, loss
 
+@jax.jit
 def eval_step(params, x, y):
-    x = nn.one_hot(x, vocab_size)
-    x = x.astype(jnp.float32)
     logits = model.apply(params, x)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
+
+def generate_sample_sequence(params, seed_sequence, length=100):
+    """Generate a sample sequence from the model."""
+    generated_sequence = seed_sequence
+    for _ in range(length):
+        logits = model.apply(params, jnp.array(generated_sequence[-seq_len:]).reshape(1, -1))
+        next_token = jnp.argmax(logits[0, -1])
+        generated_sequence.append(int(next_token))
+    return generated_sequence
+
+def save_sample_sequence(sample_sequence, filename="sample_sequence.txt"):
+    """Save the sample sequence to a file."""
+    with open(filename, "w") as f:
+        for token in sample_sequence:
+            f.write(f"{token}\n")
 
 logging.info("Starting training process...")
 for epoch in range(n_epochs):
@@ -131,5 +150,12 @@ for epoch in range(n_epochs):
             x, y = get_batch("val")
             val_loss = eval_step(params, x, y)
             logging.info(f"Epoch: {epoch}, Step: {step}, Loss: {loss}, Val Loss: {val_loss}")
+
+            seed_sequence = x[0].tolist()  
+            sample_sequence = generate_sample_sequence(params, seed_sequence)
+            sample_text = ''.join(i2c[i] for i in sample_sequence)
+            logging.info(f"Sample Sequence: {sample_text}")
+            save_sample_sequence(sample_sequence)
+
     logging.info(f"Epoch {epoch+1} complete. Loss: {loss}, Val Loss: {val_loss}")
 logging.info("Training process complete.")

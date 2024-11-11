@@ -108,7 +108,7 @@ class Transformer(nn.Module):
     dropout_rate: float = 0.1
 
     def setup(self):
-        self.embedding = nn.Dense(features=self.d_model)
+        self.embedding = nn.Embed(num_embeddings = self.vocab_size, features=self.d_model)
         self.attention_layers = [TransformerLayer(self.d_model, self.d_k, self.h, self.dropout_rate) for _ in range(self.num_layers)]
         self.positional_encoder = PositionalEncoding(self.d_model)
         self.lin = nn.Dense(features=self.vocab_size)
@@ -116,6 +116,9 @@ class Transformer(nn.Module):
         self.layernorm = nn.LayerNorm()
 
     def __call__(self, output_embeddings, deterministic: bool = True):
+        # print(f"output_embeddings.shape: {output_embeddings.shape}")
+        # Ensure the input is of integer type
+        output_embeddings = jnp.asarray(output_embeddings, dtype=jnp.int32)
         x = self.embedding(output_embeddings)
         # print(f"x.shape: {x.shape}")
         x = self.positional_encoder(x)
