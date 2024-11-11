@@ -112,7 +112,6 @@ def train_step(params, opt_state, x, y):
 
 def eval_step(params, x, y):
     x = jax.nn.one_hot(x, vocab_size)
-    y = jax.nn.one_hot(y, vocab_size)
     y_pred = model.apply(params, x)
     loss = nn.log_softmax(y_pred) * y
     loss = -jnp.sum(loss, axis=-1)
