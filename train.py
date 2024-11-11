@@ -31,6 +31,8 @@ log_interval = 200
 
 optimizer = optax.adam(learning_rate=lr)
 
+print(jax.devices())
+
 # Download the dataset
 url = "https://www.gutenberg.org/cache/epub/100/pg100.txt"
 
@@ -102,6 +104,7 @@ def count_params(params):
 num_params = count_params(params)
 logging.info(f"Number of model parameters: {num_params}")
 
+@jax.jit
 def train_step(params, opt_state, x, y):
     grad_fn = jax.value_and_grad(loss_fn)
     loss, grads = grad_fn(params, x, y)
@@ -109,9 +112,8 @@ def train_step(params, opt_state, x, y):
     params = optax.apply_updates(params, updates)
     return params, opt_state, loss
 
+@jax.jit
 def eval_step(params, x, y):
-    # x = nn.one_hot(x, vocab_size)
-    # x = x.astype(jnp.float32)
     logits = model.apply(params, x)
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()

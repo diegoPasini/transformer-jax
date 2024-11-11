@@ -116,7 +116,7 @@ class Transformer(nn.Module):
         self.layernorm = nn.LayerNorm()
 
     def __call__(self, output_embeddings, deterministic: bool = True):
-        print(f"output_embeddings.shape: {output_embeddings.shape}")
+        # print(f"output_embeddings.shape: {output_embeddings.shape}")
         # Ensure the input is of integer type
         output_embeddings = jnp.asarray(output_embeddings, dtype=jnp.int32)
         x = self.embedding(output_embeddings)
