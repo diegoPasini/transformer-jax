@@ -118,7 +118,7 @@ def eval_step(params, x, y):
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
-def generate_sample_sequence(params, seed_sequence, length=100, temperature=0.7):
+def generate_sample_sequence(params, seed_sequence, length=100, temperature=0.9):
     generated_sequence = seed_sequence
     rng = jax.random.PRNGKey(0)  
     for _ in range(length):
