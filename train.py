@@ -87,11 +87,10 @@ def get_batch(mode):
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
 
 def loss_fn(params, x, y):
-    x = jax.nn.one_hot(x, vocab_size)
-    y = jax.nn.one_hot(y, vocab_size)
-    y_pred = model.apply(params, x)
-    loss = nn.log_softmax(y_pred) * y
-    loss = -jnp.sum(loss, axis=-1)
+    x = nn.one_hot(x, vocab_size)
+    x = x.astype(jnp.float32)
+    logits = model.apply(params, x)
+    loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
 params = model.init(jax.random.PRNGKey(0), jnp.ones((1, seq_len, vocab_size)))
