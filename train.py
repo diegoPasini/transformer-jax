@@ -110,10 +110,10 @@ def train_step(params, opt_state, x, y):
     return params, opt_state, loss
 
 def eval_step(params, x, y):
-    x = jax.nn.one_hot(x, vocab_size)
-    y_pred = model.apply(params, x)
-    loss = nn.log_softmax(y_pred) * y
-    loss = -jnp.sum(loss, axis=-1)
+    x = nn.one_hot(x, vocab_size)
+    x = x.astype(jnp.float32)
+    logits = model.apply(params, x)
+    loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
 logging.info("Starting training process...")
