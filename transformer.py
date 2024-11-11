@@ -117,7 +117,6 @@ class Transformer(nn.Module):
         x = self.lin(x)
         x = self.dropout(x, deterministic=deterministic)
         x = self.layernorm(x)
-        x = nn.softmax(x)
         return x
 
 # def main():
