@@ -79,9 +79,11 @@ def get_batch(mode):
     logging.debug(f"Fetching batch for {mode} mode.")
     data = train_data if mode == "train" else val_data
     n_batches = data.shape[0]
-    idx = np.random.randint(0, n_batches)
-    x = np.stack([data[idx]])
+    indices = np.random.choice(n_batches, batch_size, replace=False)
+    x = np.stack([data[i] for i in indices])
     y = np.roll(x, -1, axis=1)
+    # print(f"x.shape: {x.shape}")
+    # print(f"y.shape: {y.shape}")
     return x, y
 
 model = Transformer(n_layers, vocab_size, d_model, d_k, h)
