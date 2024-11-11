@@ -17,21 +17,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 dataset = "shakespeare"
 model_dir = "transformer.py"
-batch_size = 4
+batch_size = 32
 seq_len = 32
 d_model = 64
 d_k = 64
 h = 4
 n_layers = 3
 n_epochs = 10
-lr = 1e-3
+lr = 1e-4
 warmup_steps = 4000
 max_steps = 20000
 log_interval = 200
 
 optimizer = optax.adam(learning_rate=lr)
 
-print(jax.devices())
+logging.info(f"JAX devices: {jax.devices()}")
 
 # Download the dataset
 url = "https://www.gutenberg.org/cache/epub/100/pg100.txt"
@@ -120,6 +120,21 @@ def eval_step(params, x, y):
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, y)
     return loss.mean()
 
+def generate_sample_sequence(params, seed_sequence, length=100):
+    """Generate a sample sequence from the model."""
+    generated_sequence = seed_sequence
+    for _ in range(length):
+        logits = model.apply(params, jnp.array(generated_sequence[-seq_len:]).reshape(1, -1))
+        next_token = jnp.argmax(logits[0, -1])
+        generated_sequence.append(int(next_token))
+    return generated_sequence
+
+def save_sample_sequence(sample_sequence, filename="sample_sequence.txt"):
+    """Save the sample sequence to a file."""
+    with open(filename, "w") as f:
+        for token in sample_sequence:
+            f.write(f"{token}\n")
+
 logging.info("Starting training process...")
 for epoch in range(n_epochs):
     logging.info(f"Starting epoch {epoch+1}/{n_epochs}")
@@ -135,5 +150,12 @@ for epoch in range(n_epochs):
             x, y = get_batch("val")
             val_loss = eval_step(params, x, y)
             logging.info(f"Epoch: {epoch}, Step: {step}, Loss: {loss}, Val Loss: {val_loss}")
+
+            seed_sequence = x[0].tolist()  
+            sample_sequence = generate_sample_sequence(params, seed_sequence)
+            sample_text = ''.join(i2c[i] for i in sample_sequence)
+            logging.info(f"Sample Sequence: {sample_text}")
+            save_sample_sequence(sample_sequence)
+
     logging.info(f"Epoch {epoch+1} complete. Loss: {loss}, Val Loss: {val_loss}")
 logging.info("Training process complete.")
