@@ -117,9 +117,9 @@ class Transformer(nn.Module):
 
     def __call__(self, output_embeddings, deterministic: bool = True):
         x = self.embedding(output_embeddings)
-        print(f"x.shape: {x.shape}")
+        # print(f"x.shape: {x.shape}")
         x = self.positional_encoder(x)
-        print(f"x.shape: {x.shape}")
+        # print(f"x.shape: {x.shape}")
         for attention_layer in self.attention_layers:
             x = attention_layer(x, deterministic=deterministic)
         x = self.lin(x)
