@@ -17,7 +17,7 @@ import numpy as np
 def scaled_dot_product_attention(q, k, v):
     # Replace 0 with -np.inf
     attention_matrix = q @ jnp.permute_dims(k, axes=(0, 2, 1))
-    d_k = k.shape[0]
+    d_k = k.shape[-1]
     attention_matrix = attention_matrix / jnp.sqrt(d_k)
     attention_matrix = jnp.triu(attention_matrix, k=0)
     attention_matrix = jnp.where(attention_matrix == 0, -9e15, attention_matrix)
