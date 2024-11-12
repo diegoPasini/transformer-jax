@@ -28,8 +28,13 @@ lr = 1e-4
 warmup_steps = 4000
 max_steps = 20000
 log_interval = 200
+base_lr = 0.001
+warmup_steps = 500
+decay_steps = 5000
 
-optimizer = optax.adam(learning_rate=lr)
+learning_rate_schedule = create_learning_rate_schedule(base_lr, warmup_steps, decay_steps, decay_type='cosine')
+
+optimizer = optax.adam(learning_rate=learning_rate_schedule)
 
 logging.info(f"JAX devices: {jax.devices()}")
 
@@ -157,3 +162,22 @@ for epoch in range(n_epochs):
 
     logging.info(f"Epoch {epoch+1} complete. Loss: {loss}, Val Loss: {val_loss}")
 logging.info("Training process complete.")
+
+
+
+import jax.numpy as jnp
+
+def create_learning_rate_schedule(base_lr, warmup_steps, decay_steps, decay_type='cosine'):
+    def schedule_fn(step):
+        if step < warmup_steps:
+            return base_lr * (step / warmup_steps)
+        progress = (step - warmup_steps) / (decay_steps - warmup_steps)
+        if decay_type == 'cosine':
+            return base_lr * 0.5 * (1 + jnp.cos(jnp.pi * jnp.clip(progress, 0, 1)))
+        elif decay_type == 'linear':
+            return base_lr * (1 - jnp.clip(progress, 0, 1))
+        else:
+            raise ValueError(f"Unknown decay_type: {decay_type}")
+    
+    return schedule_fn
+
