@@ -103,9 +103,10 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = np.sin(position * div_term)
         pe[:, 1::2] = np.cos(position * div_term)
         pe = pe[None]
-        self.pe = jax.device_put(pe)
+        self.pe = self.sow('constants', 'pe', jax.device_put(pe))
 
     def __call__(self, x):
+        pe = self.get_variable('constants', 'pe')
         x = x + self.pe[:, :x.shape[1]]
         return x
 
